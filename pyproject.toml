@@ -1,0 +1,20 @@
+[project]
+name = "watchface-led-assets"
+version = "0.1.0"
+description = "LED dot-matrix assets for a WFS watch face"
+requires-python = ">=3.10"
+dependencies = [
+    "Pillow",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
