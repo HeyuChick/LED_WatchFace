@@ -32,9 +32,9 @@ CONFIG = {
     "num_cell": 10,
     "num_pad_x": 5,
     "num_pad_y": 7,
-    "label_cell": 8,
-    "label_pad_x": 4,
-    "label_pad_y": 4,
+    "label_cell": 10,
+    "label_pad_x": 5,
+    "label_pad_y": 5,
     "aa_scale": 4,
 }
 
@@ -55,7 +55,15 @@ SYMBOL_GLYPHS = {
     "colon": [[0], [1], [0], [0], [0], [1], [0]],
     "dash": [[0, 0, 0], [0, 0, 0], [0, 0, 0], [1, 1, 1], [0, 0, 0], [0, 0, 0], [0, 0, 0]],
     "dot": [[0], [0], [0], [0], [0], [0], [1]],
-    "percent": [[1, 0, 0, 0, 1], [1, 0, 0, 1, 0], [0, 0, 1, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 1, 1], [0, 0, 0, 0, 1], [0, 0, 0, 0, 1]],
+    "percent": [
+        [1, 1, 0, 0, 1],
+        [1, 1, 0, 1, 0],
+        [0, 0, 0, 1, 0],
+        [0, 0, 1, 0, 0],
+        [0, 1, 0, 0, 0],
+        [0, 1, 0, 1, 1],
+        [1, 0, 0, 1, 1],
+    ],
 }
 
 LABEL_GLYPHS = {
@@ -154,8 +162,8 @@ def build_asset_specs() -> list[AssetSpec]:
         AssetSpec(
             f"label_{letter}",
             "glyph",
-            40,
-            48,
+            50,
+            60,
             matrix,
             CONFIG["label_cell"],
             CONFIG["label_pad_x"],

@@ -8,6 +8,15 @@ from PIL import Image
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "generate_assets.py"
 SVG_NS = "http://www.w3.org/2000/svg"
+PERCENT_GLYPH = [
+    [1, 1, 0, 0, 1],
+    [1, 1, 0, 1, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 1, 0, 0],
+    [0, 1, 0, 0, 0],
+    [0, 1, 0, 1, 1],
+    [1, 0, 0, 1, 1],
+]
 
 
 def load_generator() -> dict:
@@ -50,9 +59,30 @@ def test_asset_dimensions_match_spec() -> None:
     for digit in range(10):
         assert dimensions[f"num_{digit}"] == (60, 84)
     for code in range(ord("A"), ord("Z") + 1):
-        assert dimensions[f"label_{chr(code)}"] == (40, 48)
+        assert dimensions[f"label_{chr(code)}"] == (50, 60)
 
     assert len(namespace["WATCH_DOTS"]) == 45 * 45
+
+
+def test_percent_glyph_matches_selected_matrix() -> None:
+    namespace = load_generator()
+
+    assert namespace["SYMBOL_GLYPHS"]["percent"] == PERCENT_GLYPH
+
+
+def test_label_specs_share_background_grid() -> None:
+    namespace = load_generator()
+    cell = namespace["CONFIG"]["cell"]
+    label_specs = [spec for spec in namespace["ASSET_SPECS"] if spec.name.startswith("label_")]
+
+    assert label_specs
+    for spec in label_specs:
+        assert spec.matrix is not None
+        assert spec.cell == cell
+        assert spec.pad_x == cell / 2
+        assert spec.pad_y == cell / 2
+        assert spec.width == len(spec.matrix[0]) * cell + 2 * spec.pad_x
+        assert spec.height == len(spec.matrix) * cell + 2 * spec.pad_y
 
 
 def test_generate_png_assets(tmp_path: Path) -> None:
@@ -69,7 +99,7 @@ def test_generate_png_assets(tmp_path: Path) -> None:
         "num_8.png": (60, 84),
         "num_colon.png": (20, 84),
         "num_space.png": (30, 84),
-        "label_A.png": (40, 48),
+        "label_A.png": (50, 60),
     }
     for filename, size in expected_sizes.items():
         with Image.open(tmp_path / "png" / filename) as image:
@@ -110,6 +140,21 @@ def test_generate_svg_assets(tmp_path: Path) -> None:
     assert num_8_root.attrib["viewBox"] == "0 0 60 84"
     num_8_circles = num_8_root.findall(f".//{{{SVG_NS}}}circle")
     assert len(num_8_circles) == sum(sum(row) for row in namespace["DIGIT_GLYPHS"]["8"])
+
+    percent_root = ET.parse(tmp_path / "svg" / "num_percent.svg").getroot()
+    assert percent_root.attrib["width"] == "60"
+    assert percent_root.attrib["height"] == "84"
+    assert percent_root.attrib["viewBox"] == "0 0 60 84"
+    percent_circles = percent_root.findall(f".//{{{SVG_NS}}}circle")
+    assert len(percent_circles) == sum(sum(row) for row in PERCENT_GLYPH)
+
+    label_a_root = ET.parse(tmp_path / "svg" / "label_A.svg").getroot()
+    assert label_a_root.attrib["width"] == "50"
+    assert label_a_root.attrib["height"] == "60"
+    assert label_a_root.attrib["viewBox"] == "0 0 50 60"
+    for circle in label_a_root.findall(f".//{{{SVG_NS}}}circle"):
+        assert float(circle.attrib["cx"]) % 10 == 0
+        assert float(circle.attrib["cy"]) % 10 == 0
 
     space_root = ET.parse(tmp_path / "svg" / "num_space.svg").getroot()
     assert space_root.attrib["width"] == "30"
