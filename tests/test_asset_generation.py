@@ -33,15 +33,27 @@ def test_expected_asset_manifests_match_spec() -> None:
 
     assert len(namespace["EXPECTED_PNG_ASSETS"]) == 43
     assert len(namespace["EXPECTED_SVG_ASSETS"]) == 43
+    assert len(namespace["EXPECTED_GLOW_PNG_ASSETS"]) == 41
+    assert len(namespace["EXPECTED_GLOW_SVG_ASSETS"]) == 41
     assert namespace["EXPECTED_ASSETS"] == namespace["EXPECTED_PNG_ASSETS"]
 
     png_stems = {Path(name).stem for name in namespace["EXPECTED_PNG_ASSETS"]}
     svg_stems = {Path(name).stem for name in namespace["EXPECTED_SVG_ASSETS"]}
+    glow_png_stems = {Path(name).stem.removesuffix("_glow") for name in namespace["EXPECTED_GLOW_PNG_ASSETS"]}
+    glow_svg_stems = {Path(name).stem.removesuffix("_glow") for name in namespace["EXPECTED_GLOW_SVG_ASSETS"]}
     assert png_stems == svg_stems
+    assert glow_png_stems == glow_svg_stems
+    assert glow_png_stems == png_stems - {"bg_off_450", "mask_450"}
 
     for name in ["bg_off_450", "mask_450", "num_0", "num_colon", "num_space", "label_Z"]:
         assert f"{name}.png" in namespace["EXPECTED_PNG_ASSETS"]
         assert f"{name}.svg" in namespace["EXPECTED_SVG_ASSETS"]
+
+    for name in ["num_0", "num_colon", "num_percent", "num_space", "label_Z"]:
+        assert f"{name}_glow.png" in namespace["EXPECTED_GLOW_PNG_ASSETS"]
+        assert f"{name}_glow.svg" in namespace["EXPECTED_GLOW_SVG_ASSETS"]
+    assert "bg_off_450_glow.png" not in namespace["EXPECTED_GLOW_PNG_ASSETS"]
+    assert "mask_450_glow.svg" not in namespace["EXPECTED_GLOW_SVG_ASSETS"]
 
 
 def test_asset_dimensions_match_spec() -> None:
@@ -175,11 +187,67 @@ def test_generate_svg_assets(tmp_path: Path) -> None:
     assert len(mask_root.findall(f".//{{{SVG_NS}}}circle")) == len(namespace["WATCH_DOTS"])
 
 
+def test_generate_glow_assets(tmp_path: Path) -> None:
+    namespace = load_generator()
+    namespace["main"](["--format", "glow", "--output-dir", str(tmp_path)])
+
+    glow_png_files = sorted((tmp_path / "png_glow").glob("*.png"))
+    glow_svg_files = sorted((tmp_path / "svg_glow").glob("*.svg"))
+    assert len(glow_png_files) == 41
+    assert len(glow_svg_files) == 41
+    assert not list(tmp_path.glob("*.png"))
+    assert not list(tmp_path.glob("*.svg"))
+    assert not (tmp_path / "png").exists()
+    assert not (tmp_path / "svg").exists()
+
+    expected_png_sizes = {
+        "num_8_glow.png": (60, 84),
+        "num_colon_glow.png": (20, 84),
+        "num_space_glow.png": (30, 84),
+        "label_A_glow.png": (50, 60),
+    }
+    for filename, size in expected_png_sizes.items():
+        with Image.open(tmp_path / "png_glow" / filename) as image:
+            assert image.size == size
+            assert image.mode == "RGBA"
+
+    with Image.open(tmp_path / "png_glow" / "num_space_glow.png") as image:
+        assert image.getchannel("A").getextrema() == (0, 0)
+
+    with Image.open(tmp_path / "png_glow" / "num_8_glow.png") as image:
+        assert image.getchannel("A").getextrema()[1] > 0
+
+    with Image.open(tmp_path / "png_glow" / "label_A_glow.png") as image:
+        assert image.getchannel("A").getextrema()[1] > 0
+
+    num_8_root = ET.parse(tmp_path / "svg_glow" / "num_8_glow.svg").getroot()
+    assert num_8_root.attrib["width"] == "60"
+    assert num_8_root.attrib["height"] == "84"
+    assert num_8_root.attrib["viewBox"] == "0 0 60 84"
+    assert num_8_root.findall(f".//{{{SVG_NS}}}defs")
+    assert num_8_root.findall(f".//{{{SVG_NS}}}filter")
+    assert num_8_root.findall(f".//{{{SVG_NS}}}feGaussianBlur")
+    assert len(num_8_root.findall(f".//{{{SVG_NS}}}circle")) == sum(sum(row) for row in namespace["DIGIT_GLYPHS"]["8"])
+
+    space_root = ET.parse(tmp_path / "svg_glow" / "num_space_glow.svg").getroot()
+    assert space_root.attrib["width"] == "30"
+    assert space_root.attrib["height"] == "84"
+    assert space_root.attrib["viewBox"] == "0 0 30 84"
+    assert not space_root.findall(f".//{{{SVG_NS}}}circle")
+
+    label_a_root = ET.parse(tmp_path / "svg_glow" / "label_A_glow.svg").getroot()
+    assert label_a_root.attrib["width"] == "50"
+    assert label_a_root.attrib["height"] == "60"
+    assert label_a_root.attrib["viewBox"] == "0 0 50 60"
+
+
 def test_generate_all_assets(tmp_path: Path) -> None:
     namespace = load_generator()
     namespace["main"](["--format", "all", "--output-dir", str(tmp_path)])
 
     assert len(list((tmp_path / "png").glob("*.png"))) == 43
     assert len(list((tmp_path / "svg").glob("*.svg"))) == 43
+    assert len(list((tmp_path / "png_glow").glob("*.png"))) == 41
+    assert len(list((tmp_path / "svg_glow").glob("*.svg"))) == 41
     assert not list(tmp_path.glob("*.png"))
     assert not list(tmp_path.glob("*.svg"))

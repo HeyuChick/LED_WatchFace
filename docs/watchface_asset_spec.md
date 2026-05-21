@@ -82,16 +82,18 @@ in_circle = (dx**2 + dy**2) <= 225**2  # 225 = 表盘半径
 
 > **白色导出策略**：字符图做成白色透明底，在 WFS 的 Bitmap Font 颜色属性中设置为你想要的 LED 颜色（橙色、绿色、青色等），可以方便后期换色，不需要重导素材。
 
-### 2.3 泛光层（可选，叠加在 mask 之上）
+### 2.3 泛光层（叠加在 mask 之上）
 
-如需做 Glow 效果，另外输出一套字符图：
+生成器会额外输出两套 glow 字体素材：`assets_led/png_glow/` 用于 WFS 实际叠加，`assets_led/svg_glow/` 用于预览、编辑和版本审阅。
 
 | 参数 | 值 |
 |---|---|
-| 灯珠直径 | 10~12 px，高斯模糊处理 |
-| 透明度 | 50~70% |
-| 混合模式 | 在 WFS 中设为 ADD |
-| 画板尺寸 | 与对应字符画板一致（重要） |
+| 文件数量 | 每种格式 41 个字体文件，不包含背景和 mask |
+| 文件命名 | `<base>_glow.png` / `<base>_glow.svg` |
+| 灯珠直径 | 约 11 px，高斯模糊处理 |
+| 透明度 | 约 63%，可在 WFS 中继续调层透明度 |
+| 混合模式 | 在 WFS 中优先设为 ADD |
+| 画板尺寸 | 与对应清晰版字符画板一致（重要） |
 
 ---
 
@@ -541,12 +543,26 @@ assets_led/
 │   ├── label_A.png             # 字母 A
 │   │   ...
 │   └── label_Z.png             # 字母 Z
-└── svg/
-    ├── bg_off_450.svg
-    ├── mask_450.svg
-    ├── num_0.svg
+├── png_glow/
+│   ├── num_0_glow.png          # 数字 0 glow
+│   │   ...
+│   ├── num_space_glow.png      # 空格 glow（全透明）
+│   ├── label_A_glow.png
+│   │   ...
+│   └── label_Z_glow.png
+├── svg/
+│   ├── bg_off_450.svg
+│   ├── mask_450.svg
+│   ├── num_0.svg
+│   │   ...
+│   └── label_Z.svg
+└── svg_glow/
+    ├── num_0_glow.svg
     │   ...
-    └── label_Z.svg
+    ├── num_space_glow.svg
+    ├── label_A_glow.svg
+    │   ...
+    └── label_Z_glow.svg
 ```
 
 ### 5.6 SVG 附加输出
@@ -583,6 +599,19 @@ SVG 图形规则：
 
 由于 WFS 对 SVG 作为 Bitmap Font 字符素材的兼容性存在不确定性，SVG 输出需要在 WFS 中实测后再作为正式导入格式使用。
 
+### 5.7 Glow 附加输出
+
+Glow 素材只为字体字符生成，不包含 `bg_off_450` 和 `mask_450`：
+
+- PNG glow：`assets_led/png_glow/<base>_glow.png`
+- SVG glow：`assets_led/svg_glow/<base>_glow.svg`
+- 每种格式 41 个文件。
+- 每个 glow 文件与对应清晰版字体文件完全同尺寸。
+- `num_space_glow.png` 为全透明占位，`num_space_glow.svg` 为空画板。
+- SVG glow 使用 `<filter>` + `<feGaussianBlur>` 表达模糊效果，主要用于预览、编辑和兼容性尝试。
+
+WFS 正式叠加优先使用 PNG glow。导入时为 glow 字体层配置与清晰字体层相同的 Character 映射、文本绑定、Font Size 和位置。
+
 ---
 
 ## 第六章：WFS 组装规则
@@ -595,7 +624,7 @@ SVG 图形规则：
 | 2 | Bitmap Font | `num_*.png` 系列 | 主时间数字（亮灯） |
 | 3 | Bitmap Font | `label_*.png` 系列 | 辅助短标签 |
 | 4 | Image | `mask_450.png` | 遮罩层（修整字体边缘） |
-| 5 | Bitmap Font (可选) | glow 版字体系列 | 泛光层，置于 mask 上方 |
+| 5 | Bitmap Font | `png_glow/*_glow.png` 系列 | 泛光层，置于 mask 上方，与清晰字体层同文本绑定、同字号、同位置 |
 
 ### 6.2 Bitmap Font 导入规则
 

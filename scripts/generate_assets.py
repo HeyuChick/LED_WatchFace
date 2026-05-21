@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +35,12 @@ CONFIG = {
     "label_cell": 10,
     "label_pad_x": 5,
     "label_pad_y": 5,
+    "glow_dot_radius": 5.5,
+    "glow_blur_radius": 2.0,
+    "glow_color_rgb": (255, 255, 255, 160),
+    "glow_color_hex": "#FFFFFF",
+    "glow_opacity": 0.63,
+    "glow_filter_id": "glow-blur",
     "aa_scale": 4,
 }
 
@@ -176,8 +182,16 @@ def build_asset_specs() -> list[AssetSpec]:
 
 
 ASSET_SPECS = build_asset_specs()
+
+
+def is_font_asset(spec: AssetSpec) -> bool:
+    return spec.kind in {"glyph", "space"}
+
+
 EXPECTED_PNG_ASSETS = [f"{spec.name}.png" for spec in ASSET_SPECS]
 EXPECTED_SVG_ASSETS = [f"{spec.name}.svg" for spec in ASSET_SPECS]
+EXPECTED_GLOW_PNG_ASSETS = [f"{spec.name}_glow.png" for spec in ASSET_SPECS if is_font_asset(spec)]
+EXPECTED_GLOW_SVG_ASSETS = [f"{spec.name}_glow.svg" for spec in ASSET_SPECS if is_font_asset(spec)]
 EXPECTED_ASSETS = EXPECTED_PNG_ASSETS
 
 
@@ -268,6 +282,26 @@ def render_png_asset(spec: AssetSpec) -> Image.Image:
     return render_png_glyph(spec)
 
 
+def render_png_glow_glyph(spec: AssetSpec) -> Image.Image:
+    scale = CONFIG["aa_scale"]
+    image = Image.new("RGBA", (spec.width * scale, spec.height * scale), CONFIG["transparent_rgb"])
+    draw = ImageDraw.Draw(image, "RGBA")
+    assert spec.matrix is not None
+    for row, values in enumerate(spec.matrix):
+        for col, value in enumerate(values):
+            if value:
+                cx = spec.pad_x + col * spec.cell + spec.cell / 2
+                cy = spec.pad_y + row * spec.cell + spec.cell / 2
+                draw_dot(draw, cx, cy, CONFIG["glow_dot_radius"], CONFIG["glow_color_rgb"], scale)
+    return downsample(image, spec.width, spec.height).filter(ImageFilter.GaussianBlur(CONFIG["glow_blur_radius"]))
+
+
+def render_png_glow_asset(spec: AssetSpec) -> Image.Image:
+    if spec.kind == "space":
+        return render_png_space(spec)
+    return render_png_glow_glyph(spec)
+
+
 def svg_root(width: int, height: int) -> ET.Element:
     return ET.Element(
         f"{{{SVG_NS}}}svg",
@@ -349,6 +383,48 @@ def render_svg_asset(spec: AssetSpec) -> ET.ElementTree:
     return render_svg_glyph(spec)
 
 
+def render_svg_glow_glyph(spec: AssetSpec) -> ET.ElementTree:
+    root = svg_root(spec.width, spec.height)
+    defs = ET.SubElement(root, f"{{{SVG_NS}}}defs")
+    glow_filter = ET.SubElement(
+        defs,
+        f"{{{SVG_NS}}}filter",
+        {
+            "id": CONFIG["glow_filter_id"],
+            "x": "0",
+            "y": "0",
+            "width": "100%",
+            "height": "100%",
+        },
+    )
+    ET.SubElement(glow_filter, f"{{{SVG_NS}}}feGaussianBlur", {"stdDeviation": f"{CONFIG['glow_blur_radius']:g}"})
+    assert spec.matrix is not None
+    for row, values in enumerate(spec.matrix):
+        for col, value in enumerate(values):
+            if value:
+                cx = spec.pad_x + col * spec.cell + spec.cell / 2
+                cy = spec.pad_y + row * spec.cell + spec.cell / 2
+                ET.SubElement(
+                    root,
+                    f"{{{SVG_NS}}}circle",
+                    {
+                        "cx": f"{cx:g}",
+                        "cy": f"{cy:g}",
+                        "r": f"{CONFIG['glow_dot_radius']:g}",
+                        "fill": CONFIG["glow_color_hex"],
+                        "opacity": f"{CONFIG['glow_opacity']:g}",
+                        "filter": f"url(#{CONFIG['glow_filter_id']})",
+                    },
+                )
+    return ET.ElementTree(root)
+
+
+def render_svg_glow_asset(spec: AssetSpec) -> ET.ElementTree:
+    if spec.kind == "space":
+        return render_svg_space(spec)
+    return render_svg_glow_glyph(spec)
+
+
 def write_png_assets(output_dir: Path) -> list[Path]:
     png_dir = output_dir / "png"
     png_dir.mkdir(parents=True, exist_ok=True)
@@ -372,9 +448,36 @@ def write_svg_assets(output_dir: Path) -> list[Path]:
     return paths
 
 
+def write_glow_png_assets(output_dir: Path) -> list[Path]:
+    glow_dir = output_dir / "png_glow"
+    glow_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for spec in ASSET_SPECS:
+        if not is_font_asset(spec):
+            continue
+        path = glow_dir / f"{spec.name}_glow.png"
+        render_png_glow_asset(spec).save(path)
+        paths.append(path)
+    return paths
+
+
+def write_glow_svg_assets(output_dir: Path) -> list[Path]:
+    glow_dir = output_dir / "svg_glow"
+    glow_dir.mkdir(parents=True, exist_ok=True)
+    ET.register_namespace("", SVG_NS)
+    paths = []
+    for spec in ASSET_SPECS:
+        if not is_font_asset(spec):
+            continue
+        path = glow_dir / f"{spec.name}_glow.svg"
+        render_svg_glow_asset(spec).write(path, encoding="utf-8", xml_declaration=True)
+        paths.append(path)
+    return paths
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate LED dot-matrix watch face assets.")
-    parser.add_argument("--format", choices=("png", "svg", "all"), default="png")
+    parser.add_argument("--format", choices=("png", "svg", "glow", "all"), default="png")
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     return parser.parse_args(argv)
 
@@ -386,6 +489,9 @@ def main(argv: list[str] | None = None) -> None:
         generated.extend(write_png_assets(args.output_dir))
     if args.format in ("svg", "all"):
         generated.extend(write_svg_assets(args.output_dir))
+    if args.format in ("glow", "all"):
+        generated.extend(write_glow_png_assets(args.output_dir))
+        generated.extend(write_glow_svg_assets(args.output_dir))
     print(f"Generated {len(generated)} asset files in {args.output_dir}")
 
 

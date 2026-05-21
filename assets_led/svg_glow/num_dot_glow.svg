@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="84" viewBox="0 0 20 84"><defs><filter id="glow-blur" x="0" y="0" width="100%" height="100%"><feGaussianBlur stdDeviation="2" /></filter></defs><circle cx="10" cy="72" r="5.5" fill="#FFFFFF" opacity="0.63" filter="url(#glow-blur)" /></svg>

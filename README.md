@@ -37,7 +37,13 @@ uv run python scripts/generate_assets.py --format png
 uv run python scripts/generate_assets.py --format svg
 ```
 
-同时生成 PNG 和 SVG：
+生成 glow PNG 和 glow SVG：
+
+```bash
+uv run python scripts/generate_assets.py --format glow
+```
+
+同时生成 PNG、SVG、glow PNG 和 glow SVG：
 
 ```bash
 uv run python scripts/generate_assets.py --format all
@@ -65,19 +71,35 @@ assets_led/
 │   ├── num_percent.png
 │   ├── num_space.png
 │   └── label_A.png ~ label_Z.png
-└── svg/
-    ├── bg_off_450.svg
-    ├── mask_450.svg
-    ├── num_0.svg ~ num_9.svg
-    ├── num_colon.svg
-    ├── num_dash.svg
-    ├── num_dot.svg
-    ├── num_percent.svg
-    ├── num_space.svg
-    └── label_A.svg ~ label_Z.svg
+├── png_glow/
+│   ├── num_0_glow.png ~ num_9_glow.png
+│   ├── num_colon_glow.png
+│   ├── num_dash_glow.png
+│   ├── num_dot_glow.png
+│   ├── num_percent_glow.png
+│   ├── num_space_glow.png
+│   └── label_A_glow.png ~ label_Z_glow.png
+├── svg/
+│   ├── bg_off_450.svg
+│   ├── mask_450.svg
+│   ├── num_0.svg ~ num_9.svg
+│   ├── num_colon.svg
+│   ├── num_dash.svg
+│   ├── num_dot.svg
+│   ├── num_percent.svg
+│   ├── num_space.svg
+│   └── label_A.svg ~ label_Z.svg
+└── svg_glow/
+    ├── num_0_glow.svg ~ num_9_glow.svg
+    ├── num_colon_glow.svg
+    ├── num_dash_glow.svg
+    ├── num_dot_glow.svg
+    ├── num_percent_glow.svg
+    ├── num_space_glow.svg
+    └── label_A_glow.svg ~ label_Z_glow.svg
 ```
 
-PNG 是 WFS Bitmap Font 的主交付格式；SVG 作为预览、编辑和兼容性尝试的附加格式。
+PNG 是 WFS Bitmap Font 的主交付格式；`png_glow/` 是叠加发光层的主交付格式。SVG 和 `svg_glow/` 作为预览、编辑和兼容性尝试的附加格式。
 
 ## 运行测试
 
@@ -85,7 +107,7 @@ PNG 是 WFS Bitmap Font 的主交付格式；SVG 作为预览、编辑和兼容�
 uv run pytest
 ```
 
-测试会验证素材清单、尺寸、PNG 透明通道、SVG XML 结构，以及 PNG/SVG 是否输出到对应子目录。
+测试会验证素材清单、尺寸、PNG 透明通道、SVG XML 结构、glow 素材尺寸和 SVG blur filter，以及各格式是否输出到对应子目录。
 
 ## Git 说明
 
